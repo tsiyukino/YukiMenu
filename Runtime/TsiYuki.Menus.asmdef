@@ -1,0 +1,8 @@
+{
+    "name": "TsiYuki.Menus",
+    "rootNamespace": "TsiYuki.Menus",
+    "references": [
+        "VRC.SDKBase"
+    ],
+    "autoReferenced": true
+}

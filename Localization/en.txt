@@ -1,0 +1,59 @@
+# Yuki Menu — English
+
+ui.title = Yuki Menu
+ui.intro = Shows the menu your avatar actually ends up with, and lets you set its order and how it is paged.
+ui.ok = OK
+ui.avatar = Avatar
+ui.pick_avatar = Pick the avatar whose menu you want to see.
+ui.not_in_avatar = This must be inside an avatar (no VRC Avatar Descriptor found on any parent).
+
+ui.settings = Layout
+ui.no_component = No Yuki Menu component on this avatar yet. Without one the menu is left exactly as the other tools built it.
+ui.add_component = Add Yuki Menu
+ui.open_window = Open the Yuki Menu window
+
+ui.scope = Applies to
+ui.scope.tip = Root Only pages the outermost wheel and leaves everything deeper as it was. Everywhere pages every submenu too.
+ui.per_page = Items per page
+ui.per_page.tip = VRChat allows eight on a wheel. Eight is also where each wedge is smallest and hardest to hit, so fewer is often easier to use.
+ui.repage = Take over paging
+ui.repage.tip = Off leaves the menu exactly as the other tools built it, paging and order alike — the way to see what they did on their own.
+ui.at_limit = At eight, each wedge is as small as VRChat makes it. Try six or seven if the wheel feels cramped.
+ui.overflow_name = Next page label
+ui.overflow_name.tip = The label on the control that leads to the next page. Empty uses "More".
+ui.overflow_icon = Next page icon
+ui.overflow_at = Next page sits
+ui.overflow_at.tip = Whether the link to the next page comes last on a page or first.
+
+ui.build = Read the menu
+ui.refresh = Read it again
+ui.build.tip = Your avatar is built on a hidden copy and the finished menu is read back from it, so this is the real result rather than a guess. Your scene is not touched.
+ui.building = Building the avatar...
+ui.build_failed = The build did not finish, so there is no menu to show: {0}
+ui.stale = Something changed — read it again.
+
+ui.root_menu = Root wheel ({0} items)
+ui.empty = Nothing in here.
+ui.unnamed = (no label)
+ui.page = Page {0}
+ui.pages = {0} pages
+ui.one_page = one page
+ui.reset_order = Clear order
+ui.order_needs_component = Add the Yuki Menu component first — there is nowhere to keep the order without it.
+ui.no_order = Order not set; the menu comes out in the order the tools build it.
+ui.order_count = Order set for {0} menu(s).
+
+type.0 = Button
+type.1 = Toggle
+type.2 = Submenu
+type.3 = Two axis
+type.4 = Four axis
+type.5 = Radial
+
+undo.add_component = Add Yuki Menu
+undo.settings = Change menu layout
+undo.reorder = Reorder menu
+undo.reset_order = Clear menu order
+
+warn.multiple = {0} Yuki Menu components on this avatar; the one on "{1}" is used and the rest are ignored.
+warn.no_menu = This avatar has no expressions menu, so there was nothing to lay out.

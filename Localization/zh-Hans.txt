@@ -1,0 +1,59 @@
+# Yuki Menu — 简体中文
+
+ui.title = Yuki Menu
+ui.intro = 显示模型最终真正生成的菜单，并让你决定它的顺序和分页方式。
+ui.ok = 确定
+ui.avatar = 模型
+ui.pick_avatar = 选择要查看菜单的模型。
+ui.not_in_avatar = 这个组件必须放在模型内部（父级里没有找到 VRC Avatar Descriptor）。
+
+ui.settings = 布局
+ui.no_component = 这个模型上还没有 Yuki Menu 组件。没有它，菜单会保持其他插件构建出来的样子。
+ui.add_component = 添加 Yuki Menu
+ui.open_window = 打开 Yuki Menu 窗口
+
+ui.scope = 作用范围
+ui.scope.tip = 仅根菜单：只给最外层轮盘分页，更深的菜单保持原样。全部菜单：所有子菜单一起分页。
+ui.per_page = 每页项目数
+ui.per_page.tip = VRChat 一个轮盘最多 8 个。8 个的时候每一块也最小、最难点中，所以少一点往往更好用。
+ui.repage = 接管分页
+ui.repage.tip = 关闭后完全保留其他插件构建出的菜单，分页和顺序都不动——用来看它们原本做成了什么样。
+ui.at_limit = 8 个时每一块已经是 VRChat 能给的最小尺寸。如果轮盘显得挤，试试 6 或 7。
+ui.overflow_name = 下一页的名称
+ui.overflow_name.tip = 通往下一页的那个项目的名称。留空则使用 “More”。
+ui.overflow_icon = 下一页的图标
+ui.overflow_at = 下一页的位置
+ui.overflow_at.tip = 通往下一页的项目放在这一页的最后还是最前。
+
+ui.build = 读取菜单
+ui.refresh = 重新读取
+ui.build.tip = 会在一个隐藏的副本上真实构建一次模型，再把构建出的菜单读回来，所以这是真实结果而不是推测。你的场景不会被改动。
+ui.building = 正在构建模型…
+ui.build_failed = 构建没有完成，因此没有菜单可显示：{0}
+ui.stale = 有改动——重新读取一次。
+
+ui.root_menu = 根轮盘（{0} 项）
+ui.empty = 这里是空的。
+ui.unnamed = （没有名称）
+ui.page = 第 {0} 页
+ui.pages = {0} 页
+ui.one_page = 一页
+ui.reset_order = 清除顺序
+ui.order_needs_component = 请先添加 Yuki Menu 组件——否则顺序没有地方保存。
+ui.no_order = 未设置顺序，菜单按各插件构建的顺序排列。
+ui.order_count = 已为 {0} 个菜单设置了顺序。
+
+type.0 = 按钮
+type.1 = 开关
+type.2 = 子菜单
+type.3 = 双轴
+type.4 = 四轴
+type.5 = 径向
+
+undo.add_component = 添加 Yuki Menu
+undo.settings = 修改菜单布局
+undo.reorder = 调整菜单顺序
+undo.reset_order = 清除菜单顺序
+
+warn.multiple = 这个模型上有 {0} 个 Yuki Menu 组件；只使用 “{1}” 上的那个，其余忽略。
+warn.no_menu = 这个模型没有表情菜单，没有可以布局的内容。

@@ -1,0 +1,21 @@
+{
+  "name": "moe.tsiyuki.menu",
+  "displayName": "Yuki Menu",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "See and control the menu your avatar actually ends up with. Every tool installs its own menu by its own rules; this shows the finished result and lets you set how it is paged, so a wheel is never crammed to the VRChat limit unless you want it to be.",
+  "author": {
+    "name": "TsiYuki",
+    "url": "https://github.com/tsiyukino"
+  },
+  "license": "MIT",
+  "documentationUrl": "https://github.com/tsiyukino/YukiMenu",
+  "changelogUrl": "https://github.com/tsiyukino/YukiMenu/blob/main/CHANGELOG.md",
+  "vpmDependencies": {
+    "com.vrchat.avatars": ">=3.7.0",
+    "nadena.dev.ndmf": ">=1.11.0 <2.0.0",
+    "nadena.dev.modular-avatar": ">=1.12.0 <2.0.0",
+    "moe.tsiyuki.core": ">=0.3.0"
+  },
+  "keywords": ["vrchat", "menu", "expressions", "ndmf", "modular-avatar", "non-destructive"]
+}

@@ -1,0 +1,59 @@
+# Yuki Menu — 日本語
+
+ui.title = Yuki Menu
+ui.intro = アバターが実際に出力するメニューを表示し、その並び順とページ分けを決められます。
+ui.ok = OK
+ui.avatar = アバター
+ui.pick_avatar = メニューを見たいアバターを選んでください。
+ui.not_in_avatar = このコンポーネントはアバターの中に置いてください（親に VRC Avatar Descriptor が見つかりません）。
+
+ui.settings = レイアウト
+ui.no_component = このアバターにはまだ Yuki Menu コンポーネントがありません。無ければメニューは他のツールが作ったままになります。
+ui.add_component = Yuki Menu を追加
+ui.open_window = Yuki Menu ウィンドウを開く
+
+ui.scope = 適用範囲
+ui.scope.tip = ルートのみ：一番外側のホイールだけをページ分けし、それより深いメニューはそのままにします。すべて：サブメニューもページ分けします。
+ui.per_page = 1 ページの項目数
+ui.per_page.tip = VRChat の上限はホイール 1 枚に 8 個です。8 個のときが一番小さく押しにくいので、少なめの方が使いやすいことが多いです。
+ui.repage = ページ分けを引き受ける
+ui.repage.tip = オフにすると他のツールが作ったメニューをページ分けも並び順もそのまま残します。元の状態を確認するための設定です。
+ui.at_limit = 8 個だと各項目は VRChat で最小の大きさになります。窮屈なら 6 か 7 を試してください。
+ui.overflow_name = 次ページの名前
+ui.overflow_name.tip = 次のページへ進む項目の名前です。空なら "More" を使います。
+ui.overflow_icon = 次ページのアイコン
+ui.overflow_at = 次ページの位置
+ui.overflow_at.tip = 次のページへの項目をページの最後に置くか最初に置くか。
+
+ui.build = メニューを読み取る
+ui.refresh = 読み取り直す
+ui.build.tip = 隠しコピー上でアバターを実際にビルドし、できたメニューを読み戻します。推測ではなく本当の結果です。シーンには手を加えません。
+ui.building = アバターをビルドしています…
+ui.build_failed = ビルドが完了しなかったため、表示できるメニューがありません: {0}
+ui.stale = 変更があります。読み取り直してください。
+
+ui.root_menu = ルートホイール（{0} 項目）
+ui.empty = 何もありません。
+ui.unnamed = （名前なし）
+ui.page = {0} ページ目
+ui.pages = {0} ページ
+ui.one_page = 1 ページ
+ui.reset_order = 並び順を消去
+ui.order_needs_component = 先に Yuki Menu コンポーネントを追加してください。並び順の保存先がありません。
+ui.no_order = 並び順は未設定です。各ツールが作った順番のまま出力されます。
+ui.order_count = {0} 個のメニューに並び順を設定済みです。
+
+type.0 = ボタン
+type.1 = トグル
+type.2 = サブメニュー
+type.3 = 2 軸
+type.4 = 4 軸
+type.5 = ラジアル
+
+undo.add_component = Yuki Menu を追加
+undo.settings = メニューレイアウトを変更
+undo.reorder = メニューを並べ替え
+undo.reset_order = メニューの並び順を消去
+
+warn.multiple = このアバターに Yuki Menu コンポーネントが {0} 個あります。"{1}" のものだけを使い、残りは無視します。
+warn.no_menu = このアバターには Expressions メニューが無いため、レイアウトするものがありません。
