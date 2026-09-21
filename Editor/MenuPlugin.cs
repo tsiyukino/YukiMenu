@@ -1,7 +1,9 @@
 using System.Linq;
 using nadena.dev.ndmf;
+using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
+using VRC.SDK3.Avatars.ScriptableObjects;
 
 [assembly: ExportsPlugin(typeof(TsiYuki.Menus.Editor.MenuPlugin))]
 
@@ -12,8 +14,16 @@ namespace TsiYuki.Menus.Editor
     ///
     /// Every tool installs its menu items by its own rules, and none of them
     /// can see the result, because the result does not exist until they have
-    /// all run. So this runs last — after Modular Avatar, which is what merges
-    /// them all together — and works on the finished thing.
+    /// all run. So this runs last and works on the finished thing.
+    ///
+    /// Last means the Optimizing phase rather than Transforming, and the reason
+    /// is VRCFury. VRCFury is not an NDMF plugin: it is a VRChat SDK
+    /// preprocessor at order -10000, which puts it after NDMF's Transforming
+    /// phase (-11000) and before its Optimizing phase (-1025). It merges the
+    /// whole menu into one of its own, adds its items, and splits every menu at
+    /// eight again — so anything laid out in Transforming is undone before the
+    /// avatar is uploaded. Optimizing is on the far side of it, where what we
+    /// see includes VRCFury's items and is what ships.
     /// </summary>
     public class MenuPlugin : Plugin<MenuPlugin>
     {
@@ -22,11 +32,10 @@ namespace TsiYuki.Menus.Editor
 
         protected override void Configure()
         {
-            InPhase(BuildPhase.Transforming)
-                // Modular Avatar merges every installer into the one real menu
-                // and pages what overflows; there is nothing to lay out before
-                // it has done that.
-                .AfterPlugin("nadena.dev.modular-avatar")
+            InPhase(BuildPhase.Optimizing)
+                // Avatar Optimizer can drop controls whose parameters it has
+                // removed; the pages should be counted after that.
+                .AfterPlugin("com.anatawa12.avatar-optimizer")
                 .Run("Lay out the avatar menu", Execute);
         }
 
@@ -59,7 +68,7 @@ namespace TsiYuki.Menus.Editor
                     OverflowIcon = layout.overflowIcon,
                     OverflowFirst = layout.overflowAt == OverflowPlacement.Start,
                     Order = layout.order,
-                    IsGenerated = m => m != null && ctx.IsTemporaryAsset(m),
+                    IsGenerated = Generated(ctx),
                     Save = m => ctx.AssetSaver.SaveAsset(m),
                 };
 
@@ -74,6 +83,25 @@ namespace TsiYuki.Menus.Editor
 
             foreach (var component in components)
                 if (component != null) Object.DestroyImmediate(component);
+        }
+
+        /// <summary>
+        /// The three places a menu made during this build can be: NDMF's own
+        /// temporary folder, nowhere at all (held only in memory), and the
+        /// scratch package VRCFury writes its build into. A menu anywhere else
+        /// is a file in the project and belongs to the user.
+        /// </summary>
+        const string VrcFuryBuilds = "Packages/com.vrcfury.temp/";
+
+        static System.Func<VRCExpressionsMenu, bool> Generated(BuildContext ctx)
+        {
+            return menu =>
+            {
+                if (menu == null) return false;
+                if (ctx.IsTemporaryAsset(menu)) return true;
+                var path = AssetDatabase.GetAssetPath(menu);
+                return string.IsNullOrEmpty(path) || path.StartsWith(VrcFuryBuilds);
+            };
         }
 
         static string Path(BuildContext ctx, Component component)

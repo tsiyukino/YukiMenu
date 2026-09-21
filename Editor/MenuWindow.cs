@@ -17,6 +17,10 @@ namespace TsiYuki.Menus.Editor
     /// lines drawn between the items rather than as "More" submenus to click
     /// through, because the pages follow from the order and the order is the
     /// thing being edited.
+    ///
+    /// Submenus start closed. A menu worth opening this window for has more
+    /// items than fit on a screen, and the root wheel is what the question is
+    /// usually about.
     /// </summary>
     public class MenuWindow : EditorWindow
     {
@@ -28,7 +32,24 @@ namespace TsiYuki.Menus.Editor
         MenuNode tree;
         string error;
         bool stale = true;
-        readonly HashSet<string> collapsed = new HashSet<string>();
+        bool ranFull;
+        long buildMs;
+
+        // Only these are open; everything else is closed.
+        readonly HashSet<string> expanded = new HashSet<string>();
+
+        // --- dragging ---
+        class DragRow { public MenuNode Parent; public int Index; }
+        const string DragKey = "moe.tsiyuki.menu.row";
+        DragRow grabbed;
+        string dropMenu;
+        int dropIndex = -1;
+
+        // A move is queued rather than applied where it is asked for: reordering
+        // the rows in the middle of drawing them would leave IMGUI's layout pass
+        // and its paint pass disagreeing about what is on screen.
+        class PendingMove { public MenuNode Parent; public int From; public int To; public YukiMenuLayout Layout; }
+        PendingMove queued;
 
         static string _version;
         static string Version
@@ -92,7 +113,7 @@ namespace TsiYuki.Menus.Editor
             {
                 avatar = (VRCAvatarDescriptor)EditorGUILayout.ObjectField(
                     L["ui.avatar"], avatar, typeof(VRCAvatarDescriptor), true);
-                if (change.changed) { tree = null; stale = true; }
+                if (change.changed) { tree = null; stale = true; expanded.Clear(); }
             }
 
             if (avatar == null)
@@ -110,11 +131,16 @@ namespace TsiYuki.Menus.Editor
 
             if (tree == null) return;
 
+            DrawTreeToolbar();
+
             using (var scope = new EditorGUILayout.ScrollViewScope(scroll))
             {
                 scroll = scope.scrollPosition;
                 DrawMenu(tree, layout, 0, true);
             }
+
+            HandleDragEnd();
+            ApplyQueued();
         }
 
         // --- settings ---------------------------------------------------------------
@@ -190,7 +216,11 @@ namespace TsiYuki.Menus.Editor
                 if (tree != null && stale)
                     GUILayout.Label(L["ui.stale"], YukiGUI.WrapMini);
             }
-            EditorGUILayout.LabelField(L["ui.build.tip"], YukiGUI.WrapMini);
+
+            if (tree != null && ranFull)
+                EditorGUILayout.LabelField(L.Tr("ui.with_vrcfury", (buildMs / 1000f).ToString("0.0")), YukiGUI.WrapMini);
+            else
+                EditorGUILayout.LabelField(L["ui.build.tip"], YukiGUI.WrapMini);
         }
 
         void Refresh()
@@ -199,11 +229,15 @@ namespace TsiYuki.Menus.Editor
             var overflow = layout != null && !string.IsNullOrEmpty(layout.overflowName)
                 ? layout.overflowName
                 : MenuPaginator.DefaultOverflowName;
+            var perPage = layout != null ? layout.itemsPerPage : MenuPaginator.VrcLimit;
 
             try
             {
-                EditorUtility.DisplayProgressBar(L["ui.title"], L["ui.building"], 0.5f);
-                tree = MenuSnapshot.Capture(avatar.gameObject, overflow, out error);
+                var full = MenuSnapshot.HasVRCFury(avatar.gameObject);
+                EditorUtility.DisplayProgressBar(L["ui.title"], L[full ? "ui.building_full" : "ui.building"], 0.5f);
+                tree = MenuSnapshot.Capture(avatar.gameObject, overflow, perPage, out error);
+                ranFull = MenuSnapshot.LastRunWasFull;
+                buildMs = MenuSnapshot.LastMilliseconds;
             }
             finally
             {
@@ -213,6 +247,29 @@ namespace TsiYuki.Menus.Editor
         }
 
         // --- the tree ---------------------------------------------------------------
+
+        void DrawTreeToolbar()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Label(L["ui.drag_hint"], YukiGUI.WrapMini);
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button(L["ui.expand_all"], EditorStyles.miniButtonLeft, GUILayout.Width(70)))
+                    ExpandAll(tree);
+                if (GUILayout.Button(L["ui.collapse_all"], EditorStyles.miniButtonRight, GUILayout.Width(70)))
+                    expanded.Clear();
+            }
+        }
+
+        void ExpandAll(MenuNode menu)
+        {
+            foreach (var child in menu.Children)
+            {
+                if (!child.IsSubMenu) continue;
+                expanded.Add(child.Path);
+                ExpandAll(child);
+            }
+        }
 
         void DrawMenu(MenuNode menu, YukiMenuLayout layout, int depth, bool isRoot)
         {
@@ -229,14 +286,19 @@ namespace TsiYuki.Menus.Editor
                     GUILayout.Label(L.Tr("ui.root_menu", menu.Children.Count.ToString()),
                                     YukiGUI.SectionHeaderStyle);
                     GUILayout.FlexibleSpace();
-                    DrawPageBadge(breaks.Count + 1);
-                    DrawResetOrder(layout, menu);
+                    GUILayout.Label(breaks.Count == 0 ? L["ui.one_page"] : L.Tr("ui.pages", (breaks.Count + 1).ToString()),
+                                    EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+                    DrawResetOrder(layout);
                 }
             }
 
             if (menu.Children.Count == 0)
             {
-                Indented(depth, () => GUILayout.Label(L["ui.empty"], YukiGUI.WrapMini));
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(depth * 14 + 14);
+                    GUILayout.Label(L["ui.empty"], YukiGUI.WrapMini);
+                }
                 return;
             }
 
@@ -250,7 +312,7 @@ namespace TsiYuki.Menus.Editor
         void DrawRow(MenuNode parent, int index, YukiMenuLayout layout, int depth)
         {
             var node = parent.Children[index];
-            var open = node.IsSubMenu && !collapsed.Contains(node.Path);
+            var open = node.IsSubMenu && expanded.Contains(node.Path);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -258,31 +320,37 @@ namespace TsiYuki.Menus.Editor
 
                 if (node.IsSubMenu)
                 {
-                    if (GUILayout.Button(open ? "\u25be" : "\u25b8", EditorStyles.label, GUILayout.Width(14)))
+                    if (GUILayout.Button(open ? "▾" : "▸", EditorStyles.label, GUILayout.Width(14)))
                     {
-                        if (open) collapsed.Add(node.Path); else collapsed.Remove(node.Path);
+                        if (open) expanded.Remove(node.Path); else expanded.Add(node.Path);
                         open = !open;
                     }
                 }
                 else GUILayout.Space(14);
 
+                GUILayout.Label("≡", EditorStyles.centeredGreyMiniLabel, GUILayout.Width(12));
+
                 if (node.Icon != null) GUILayout.Label(node.Icon, GUILayout.Width(18), GUILayout.Height(18));
                 else GUILayout.Space(18);
 
                 GUILayout.Label(string.IsNullOrEmpty(node.Name) ? L["ui.unnamed"] : node.Name,
-                                GUILayout.MinWidth(80));
+                                GUILayout.MinWidth(60));
                 GUILayout.FlexibleSpace();
 
                 GUILayout.Label(Describe(node), EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
 
                 using (new EditorGUI.DisabledScope(index == 0))
                     if (GUILayout.Button("▲", EditorStyles.miniButtonLeft, GUILayout.Width(22)))
-                        Move(parent, index, -1, layout);
+                        MoveTo(parent, index, index - 1, layout);
 
                 using (new EditorGUI.DisabledScope(index == parent.Children.Count - 1))
                     if (GUILayout.Button("▼", EditorStyles.miniButtonRight, GUILayout.Width(22)))
-                        Move(parent, index, 1, layout);
+                        MoveTo(parent, index, index + 1, layout);
             }
+
+            var row = GUILayoutUtility.GetLastRect();
+            HandleRow(parent, index, row, layout);
+            DrawDropLine(parent, index, row);
 
             if (node.IsSubMenu && open) DrawMenu(node, layout, depth + 1, false);
         }
@@ -306,13 +374,7 @@ namespace TsiYuki.Menus.Editor
             }
         }
 
-        void DrawPageBadge(int pages)
-        {
-            GUILayout.Label(pages <= 1 ? L["ui.one_page"] : L.Tr("ui.pages", pages.ToString()),
-                            EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
-        }
-
-        void DrawResetOrder(YukiMenuLayout layout, MenuNode menu)
+        void DrawResetOrder(YukiMenuLayout layout)
         {
             if (layout == null || layout.order.Count == 0) return;
             if (!GUILayout.Button(L["ui.reset_order"], EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
@@ -323,40 +385,127 @@ namespace TsiYuki.Menus.Editor
             stale = true;
         }
 
+        // --- dragging ---------------------------------------------------------------
+
+        /// <summary>
+        /// A row is picked up from anywhere on it: by the time this runs, any
+        /// button on the row that was clicked has already taken the event for
+        /// itself, so whatever is left is a grab.
+        /// </summary>
+        void HandleRow(MenuNode parent, int index, Rect row, YukiMenuLayout layout)
+        {
+            var e = Event.current;
+            EditorGUIUtility.AddCursorRect(row, MouseCursor.Pan);
+
+            switch (e.type)
+            {
+                case EventType.MouseDown:
+                    if (e.button != 0 || !row.Contains(e.mousePosition)) break;
+                    grabbed = new DragRow { Parent = parent, Index = index };
+                    e.Use();
+                    break;
+
+                case EventType.MouseDrag:
+                    // Whichever row draws first sees this, so the drag is
+                    // described by what was grabbed, not by what is being drawn.
+                    if (grabbed == null) break;
+                    DragAndDrop.PrepareStartDrag();
+                    DragAndDrop.objectReferences = new Object[0];
+                    DragAndDrop.SetGenericData(DragKey, grabbed);
+                    DragAndDrop.StartDrag(grabbed.Parent.Children[grabbed.Index].Name);
+                    grabbed = null;
+                    e.Use();
+                    break;
+
+                case EventType.DragUpdated:
+                case EventType.DragPerform:
+                    if (!row.Contains(e.mousePosition)) break;
+                    var payload = DragAndDrop.GetGenericData(DragKey) as DragRow;
+                    // Only within one menu: moving an item to another wheel is
+                    // a different thing entirely, and not one paging can express.
+                    if (payload == null || payload.Parent != parent)
+                    {
+                        DragAndDrop.visualMode = DragAndDropVisualMode.Rejected;
+                        break;
+                    }
+
+                    var below = e.mousePosition.y > row.center.y;
+                    dropMenu = parent.Path;
+                    dropIndex = below ? index + 1 : index;
+                    DragAndDrop.visualMode = DragAndDropVisualMode.Move;
+
+                    if (e.type == EventType.DragPerform)
+                    {
+                        DragAndDrop.AcceptDrag();
+                        var to = dropIndex > payload.Index ? dropIndex - 1 : dropIndex;
+                        MoveTo(parent, payload.Index, to, layout);
+                        dropIndex = -1;
+                        dropMenu = null;
+                    }
+                    e.Use();
+                    Repaint();
+                    break;
+            }
+        }
+
+        void DrawDropLine(MenuNode parent, int index, Rect row)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            if (dropIndex < 0 || dropMenu != parent.Path) return;
+
+            var last = index == parent.Children.Count - 1;
+            float y;
+            if (dropIndex == index) y = row.yMin;
+            else if (dropIndex == index + 1 && last) y = row.yMax - 2f;
+            else return;
+
+            EditorGUI.DrawRect(new Rect(row.x, y, row.width, 2f), new Color(0.3f, 0.65f, 1f, 0.9f));
+        }
+
+        void HandleDragEnd()
+        {
+            var e = Event.current;
+            if (e.type == EventType.DragExited || e.type == EventType.MouseUp)
+            {
+                grabbed = null;
+                if (dropIndex >= 0) { dropIndex = -1; dropMenu = null; Repaint(); }
+            }
+        }
+
+        void MoveTo(MenuNode parent, int from, int to, YukiMenuLayout layout)
+        {
+            if (from == to || from < 0 || from >= parent.Children.Count) return;
+            queued = new PendingMove { Parent = parent, From = from, To = to, Layout = layout };
+        }
+
         /// <summary>
         /// Moving a row rewrites the whole recorded order for that one menu, so
         /// the recording always describes a complete arrangement rather than a
         /// list of nudges that later builds would have to reconcile.
         /// </summary>
-        void Move(MenuNode parent, int index, int delta, YukiMenuLayout layout)
+        void ApplyQueued()
         {
-            var to = index + delta;
-            if (to < 0 || to >= parent.Children.Count) return;
+            if (queued == null) return;
+            var move = queued;
+            queued = null;
 
-            var node = parent.Children[index];
-            parent.Children.RemoveAt(index);
+            var parent = move.Parent;
+            var to = Mathf.Clamp(move.To, 0, parent.Children.Count - 1);
+            var node = parent.Children[move.From];
+            parent.Children.RemoveAt(move.From);
             parent.Children.Insert(to, node);
+            Repaint();
 
-            if (layout == null)
+            if (move.Layout == null)
             {
                 EditorUtility.DisplayDialog(L["ui.title"], L["ui.order_needs_component"], L["ui.ok"]);
                 return;
             }
 
-            Undo.RecordObject(layout, L["undo.reorder"]);
-            var group = layout.Ensure(parent.Path);
+            Undo.RecordObject(move.Layout, L["undo.reorder"]);
+            var group = move.Layout.Ensure(parent.Path);
             group.items = parent.Children.Select(c => c.Key()).ToList();
-            EditorUtility.SetDirty(layout);
-            GUI.changed = true;
-        }
-
-        static void Indented(int depth, System.Action body)
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.Space(depth * 14 + 14);
-                body();
-            }
+            EditorUtility.SetDirty(move.Layout);
         }
     }
 }

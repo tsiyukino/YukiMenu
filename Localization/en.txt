@@ -31,6 +31,11 @@ ui.build.tip = Your avatar is built on a hidden copy and the finished menu is re
 ui.building = Building the avatar...
 ui.build_failed = The build did not finish, so there is no menu to show: {0}
 ui.stale = Something changed — read it again.
+ui.building_full = Building the avatar, VRCFury included...
+ui.with_vrcfury = VRCFury is on this avatar, so the whole build was run and its menu items are included ({0} s).
+ui.drag_hint = Drag a row to move it, or use the arrows. Submenus start closed.
+ui.expand_all = Expand all
+ui.collapse_all = Collapse all
 
 ui.root_menu = Root wheel ({0} items)
 ui.empty = Nothing in here.

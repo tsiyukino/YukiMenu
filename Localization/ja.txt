@@ -31,6 +31,11 @@ ui.build.tip = 隠しコピー上でアバターを実際にビルドし、で�
 ui.building = アバターをビルドしています…
 ui.build_failed = ビルドが完了しなかったため、表示できるメニューがありません: {0}
 ui.stale = 変更があります。読み取り直してください。
+ui.building_full = アバターをビルドしています（VRCFury を含む）…
+ui.with_vrcfury = このアバターには VRCFury があるため、フルビルドを実行し、その項目も含めています（{0} 秒）。
+ui.drag_hint = 行をドラッグして移動できます。矢印でも動かせます。サブメニューは折りたたみ状態で始まります。
+ui.expand_all = すべて展開
+ui.collapse_all = すべて折りたたむ
 
 ui.root_menu = ルートホイール（{0} 項目）
 ui.empty = 何もありません。

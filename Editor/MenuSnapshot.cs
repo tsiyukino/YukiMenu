@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using nadena.dev.ndmf;
 using UnityEditor;
@@ -46,13 +47,23 @@ namespace TsiYuki.Menus.Editor
     /// </summary>
     public static class MenuSnapshot
     {
-        public static MenuNode Capture(GameObject avatarRoot, string overflowName, out string error)
+        /// <summary>True when the last capture had to run the whole VRChat
+        /// preprocessor chain because VRCFury is on the avatar.</summary>
+        public static bool LastRunWasFull { get; private set; }
+
+        public static long LastMilliseconds { get; private set; }
+
+        public static MenuNode Capture(GameObject avatarRoot, string overflowName, int itemsPerPage, out string error)
         {
             error = null;
             if (avatarRoot == null) { error = "no avatar"; return null; }
 
             var scene = avatarRoot.scene;
             var wasDirty = scene.IsValid() && scene.isDirty;
+
+            var wanted = HasVRCFury(avatarRoot);
+            var full = false;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
 
             GameObject clone = null;
             try
@@ -61,13 +72,15 @@ namespace TsiYuki.Menus.Editor
                 clone.name = avatarRoot.name;
                 clone.transform.position = avatarRoot.transform.position + Vector3.right * 1000f;
 
-                Process(clone);
+                full = wanted && ProcessEverything(clone);
+                LastRunWasFull = full;
+                if (!full) Process(clone);
 
                 var descriptor = clone.GetComponent<VRCAvatarDescriptor>();
                 var menu = descriptor != null ? descriptor.expressionsMenu : null;
                 if (menu == null) return new MenuNode { Name = avatarRoot.name };
 
-                return Build(menu, "", overflowName, new HashSet<VRCExpressionsMenu>());
+                return Build(menu, "", overflowName, itemsPerPage, new HashSet<VRCExpressionsMenu>());
             }
             catch (Exception e)
             {
@@ -78,9 +91,69 @@ namespace TsiYuki.Menus.Editor
             finally
             {
                 if (clone != null) UnityEngine.Object.DestroyImmediate(clone);
+                // The full chain ends at upload, so nothing cleans up after it
+                // here; the assets the build wrote are ours to remove.
+                if (full) TryCleanTemporaryAssets();
                 // Looking at the menu is not editing the scene.
                 if (scene.IsValid() && !wasDirty) ClearDirtiness(scene);
+                clock.Stop();
+                LastMilliseconds = clock.ElapsedMilliseconds;
             }
+        }
+
+        /// <summary>
+        /// VRCFury components, recognised by their namespace rather than by a
+        /// reference, so this package does not depend on VRCFury being there.
+        /// </summary>
+        public static bool HasVRCFury(GameObject avatarRoot)
+        {
+            foreach (var component in avatarRoot.GetComponentsInChildren<Component>(true))
+            {
+                if (component == null) continue;
+                var name = component.GetType().FullName;
+                if (name != null && name.StartsWith("VF.")) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Runs the whole VRChat preprocessor chain, which is the only way to
+        /// see VRCFury's menu items: VRCFury is not an NDMF plugin, it is an SDK
+        /// preprocessor, and it runs between NDMF's two halves. The chain is the
+        /// same one an upload runs, on a copy that is thrown away.
+        ///
+        /// Reached by name rather than by a reference, so that a change in the
+        /// SDK costs the VRCFury items rather than the whole window.
+        /// </summary>
+        static bool ProcessEverything(GameObject clone)
+        {
+            try
+            {
+                // Found by walking the loaded assemblies: the SDK's editor
+                // assembly is named VRCSDKBase-Editor, which is not something to
+                // rely on staying that way.
+                var type = AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(a => a.GetType("VRC.SDKBase.Editor.BuildPipeline.VRCBuildPipelineCallbacks"))
+                    .FirstOrDefault(x => x != null);
+                if (type == null) return false;
+                var method = type.GetMethod("OnPreprocessAvatar",
+                    BindingFlags.Static | BindingFlags.Public, null, new[] { typeof(GameObject) }, null);
+                if (method == null) return false;
+                method.Invoke(null, new object[] { clone });
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Yuki Menu] The full build failed, falling back to the NDMF-only one. " +
+                                 e.GetBaseException().Message);
+                return false;
+            }
+        }
+
+        static void TryCleanTemporaryAssets()
+        {
+            try { AvatarProcessor.CleanTemporaryAssets(); }
+            catch (Exception e) { Debug.LogWarning("[Yuki Menu] " + e.Message); }
         }
 
         /// <summary>
@@ -109,13 +182,13 @@ namespace TsiYuki.Menus.Editor
             AvatarProcessor.ProcessAvatar(clone);
         }
 
-        static MenuNode Build(VRCExpressionsMenu menu, string path, string overflowName,
+        static MenuNode Build(VRCExpressionsMenu menu, string path, string overflowName, int itemsPerPage,
                               HashSet<VRCExpressionsMenu> open)
         {
             var node = new MenuNode { Path = path, IsSubMenu = true };
             if (menu == null || !open.Add(menu)) return node;
 
-            foreach (var control in Flatten(menu, overflowName))
+            foreach (var control in Flatten(menu, overflowName, itemsPerPage))
             {
                 var child = new MenuNode
                 {
@@ -128,7 +201,7 @@ namespace TsiYuki.Menus.Editor
                     IsSubMenu = control.type == Control.ControlType.SubMenu,
                 };
                 if (child.IsSubMenu && control.subMenu != null)
-                    child.Children = Build(control.subMenu, child.Path, overflowName, open).Children;
+                    child.Children = Build(control.subMenu, child.Path, overflowName, itemsPerPage, open).Children;
                 node.Children.Add(child);
             }
 
@@ -136,30 +209,13 @@ namespace TsiYuki.Menus.Editor
             return node;
         }
 
-        /// <summary>The controls of a menu and of every page hanging off it, as
-        /// one list. Everything here came out of a build, so a link that looks
-        /// like paging is paging.</summary>
-        static List<Control> Flatten(VRCExpressionsMenu menu, string overflowName)
+        /// <summary>
+        /// The menu's controls with its pages folded back in. Everything here
+        /// came out of a build, so a link that looks like paging is paging.
+        /// </summary>
+        static List<Control> Flatten(VRCExpressionsMenu menu, string overflowName, int itemsPerPage)
         {
-            var result = new List<Control>();
-            var seen = new HashSet<VRCExpressionsMenu>();
-            var at = menu;
-
-            while (at != null && seen.Add(at))
-            {
-                var list = at.controls;
-                var last = list.Count > 0 ? list[list.Count - 1] : null;
-                if (list.Count > 1 && MenuPaginator.IsPageLink(last, overflowName))
-                {
-                    for (var i = 0; i < list.Count - 1; i++) result.Add(list[i]);
-                    at = last.subMenu;
-                    continue;
-                }
-                result.AddRange(list);
-                at = null;
-            }
-
-            return result;
+            return MenuPaginator.FlattenPages(menu, overflowName, itemsPerPage, _ => true);
         }
 
         static void ClearDirtiness(UnityEngine.SceneManagement.Scene scene)

@@ -31,6 +31,11 @@ ui.build.tip = 会在一个隐藏的副本上真实构建一次模型，再把�
 ui.building = 正在构建模型…
 ui.build_failed = 构建没有完成，因此没有菜单可显示：{0}
 ui.stale = 有改动——重新读取一次。
+ui.building_full = 正在构建模型（包含 VRCFury）…
+ui.with_vrcfury = 这个模型上有 VRCFury，所以跑了完整构建，它的菜单项也包含在内（{0} 秒）。
+ui.drag_hint = 拖动一行即可移动，也可以用箭头。子菜单默认折叠。
+ui.expand_all = 全部展开
+ui.collapse_all = 全部折叠
 
 ui.root_menu = 根轮盘（{0} 项）
 ui.empty = 这里是空的。

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using Control = VRC.SDK3.Avatars.ScriptableObjects.VRCExpressionsMenu.Control;
@@ -24,6 +26,29 @@ namespace TsiYuki.Menus.Editor
         public const int VrcLimit = VRCExpressionsMenu.MAX_CONTROLS;
 
         public const string DefaultOverflowName = "More";
+
+        // What the other tools call the control that leads to the next page:
+        // Modular Avatar's is "More", VRCFury's is "Next".
+        static readonly string[] KnownNames = { "More", "Next" };
+
+        // And what they call the page behind it: "Menu (Page 2)" from VRCFury,
+        // "Menu (2)" from us. A tool with a renamed link still names its pages.
+        static readonly Regex PageName = new Regex(@"\((?:Page )?\d+\)$");
+
+        // Modular Avatar puts its own icon on every link it makes, which is the
+        // one unmistakable mark any of them leave.
+        const string MoreIconPath = "Packages/nadena.dev.modular-avatar/Runtime/Icons/Icon_More_A.png";
+        static Texture2D _moreIcon;
+        static bool _moreIconLoaded;
+        static Texture2D MoreIcon
+        {
+            get
+            {
+                if (_moreIconLoaded) return _moreIcon;
+                _moreIconLoaded = true;
+                return _moreIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(MoreIconPath);
+            }
+        }
 
         public class Options
         {
@@ -95,50 +120,111 @@ namespace TsiYuki.Menus.Editor
         // --- taking the pages apart -------------------------------------------------
 
         /// <summary>
-        /// Walks the chain of overflow submenus and returns every control on it
-        /// as one list, the links themselves dropped.
+        /// Every control of a menu and of the pages hanging off it, as one list,
+        /// the links themselves dropped.
+        ///
+        /// A link is spliced where it sits rather than only at the end, because
+        /// by the time this runs it often is not at the end any more: Modular
+        /// Avatar pages a menu, and then VRCFury appends its own items after
+        /// the link Modular Avatar left, stranding it in the middle. Splicing in
+        /// place is what puts those items back in the order they were meant to
+        /// be read in.
         /// </summary>
-        static List<Control> Flatten(VRCExpressionsMenu menu, Options options, ref bool changed)
+        public static List<Control> FlattenPages(VRCExpressionsMenu menu, string overflowName, int itemsPerPage,
+                                                 Func<VRCExpressionsMenu, bool> isGenerated)
         {
             var result = new List<Control>();
-            var seen = new HashSet<VRCExpressionsMenu>();
-            var at = menu;
-
-            while (at != null && seen.Add(at))
-            {
-                var list = at.controls;
-                var last = list.Count > 0 ? list[list.Count - 1] : null;
-
-                // A link only counts as paging if the menu behind it was made
-                // during this build. A submenu of the user's own, however it is
-                // named, is one of their menu items and stays one.
-                if (list.Count > 1 && IsPageLink(last, options.OverflowName) && options.IsGenerated(last.subMenu))
-                {
-                    for (var i = 0; i < list.Count - 1; i++) result.Add(Clone(list[i]));
-                    at = last.subMenu;
-                    changed = true;
-                    continue;
-                }
-
-                foreach (var control in list) result.Add(Clone(control));
-                at = null;
-            }
-
+            var changed = false;
+            Collect(menu, overflowName, itemsPerPage, isGenerated ?? (_ => true), result,
+                    new HashSet<VRCExpressionsMenu>(), ref changed);
             return result;
         }
 
+        static List<Control> Flatten(VRCExpressionsMenu menu, Options options, ref bool changed)
+        {
+            var result = new List<Control>();
+            Collect(menu, options.OverflowName, options.ItemsPerPage, options.IsGenerated, result,
+                    new HashSet<VRCExpressionsMenu>(), ref changed);
+            return result;
+        }
+
+        static void Collect(VRCExpressionsMenu menu, string overflowName, int itemsPerPage,
+                            Func<VRCExpressionsMenu, bool> isGenerated, List<Control> into,
+                            HashSet<VRCExpressionsMenu> seen, ref bool changed)
+        {
+            if (menu == null || !seen.Add(menu)) return;
+
+            var list = menu.controls;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var control = list[i];
+                // A link only counts as paging if the menu behind it was made
+                // during this build. A submenu of the user's own, however it is
+                // named, is one of their menu items and stays one.
+                // A mark that only a paging link carries is proof on its own.
+                // A link recognised by its shape alone has to be backed up by
+                // the menu behind it having been made during this build.
+                if (IsMarkedPageLink(control) ||
+                    (IsShapedLikePageLink(control, overflowName, list.Count, itemsPerPage, i == list.Count - 1)
+                     && isGenerated(control.subMenu)))
+                {
+                    changed = true;
+                    Collect(control.subMenu, overflowName, itemsPerPage, isGenerated, into, seen, ref changed);
+                    continue;
+                }
+                into.Add(Clone(control));
+            }
+        }
+
         /// <summary>
-        /// Recognises an overflow link: a submenu, last on its page, driving no
-        /// parameter, labelled either the way Modular Avatar labels one or the
-        /// way we do.
+        /// Recognises an overflow link.
+        ///
+        /// Being sure matters, because a link is not kept: the page behind it is
+        /// spliced into the page in front. Mistaking one of the user's own
+        /// submenus for a link would tip its contents out into its parent.
         /// </summary>
-        public static bool IsPageLink(Control control, string overflowName)
+        /// <param name="parentCount">How many controls sit on the page holding this one.</param>
+        /// <param name="ourLimit">The page size we ourselves would use, since a
+        /// page we made earlier is as much paging as anyone else's.</param>
+        public static bool IsPageLink(Control control, string overflowName, int parentCount, int ourLimit, bool isLast)
+        {
+            return IsMarkedPageLink(control)
+                   || IsShapedLikePageLink(control, overflowName, parentCount, ourLimit, isLast);
+        }
+
+        /// <summary>
+        /// A link carrying a mark no ordinary menu item carries: the icon
+        /// Modular Avatar puts on every one of its links, or a page named the
+        /// way VRCFury and we name ours. Either settles it wherever the control
+        /// happens to sit.
+        /// </summary>
+        static bool IsMarkedPageLink(Control control)
+        {
+            if (!CouldBeLink(control)) return false;
+            if (MoreIcon != null && control.icon == MoreIcon) return true;
+            return PageName.IsMatch(control.subMenu.name ?? "");
+        }
+
+        /// <summary>
+        /// No mark, so only the shape is left, and then the control has to be in
+        /// the shape's place: named the way a link is named and sitting last on a
+        /// page that is exactly full, since a menu with room to spare was never
+        /// split.
+        /// </summary>
+        static bool IsShapedLikePageLink(Control control, string overflowName, int parentCount, int ourLimit, bool isLast)
+        {
+            if (!CouldBeLink(control) || !isLast) return false;
+            if (parentCount != VrcLimit && parentCount != Mathf.Clamp(ourLimit, 2, VrcLimit)) return false;
+            return KnownNames.Contains(control.name)
+                   || (!string.IsNullOrEmpty(overflowName) && control.name == overflowName);
+        }
+
+        static bool CouldBeLink(Control control)
         {
             if (control == null) return false;
             if (control.type != Control.ControlType.SubMenu || control.subMenu == null) return false;
-            if (control.parameter != null && !string.IsNullOrEmpty(control.parameter.name)) return false;
-            if (control.name == DefaultOverflowName) return true;
-            return !string.IsNullOrEmpty(overflowName) && control.name == overflowName;
+            // A link exists to be walked through, so it drives nothing.
+            return control.parameter == null || string.IsNullOrEmpty(control.parameter.name);
         }
 
         // --- the order the user set -------------------------------------------------
