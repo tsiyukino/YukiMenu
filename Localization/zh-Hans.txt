@@ -32,8 +32,7 @@ ui.building = 正在构建模型…
 ui.build_failed = 构建没有完成，因此没有菜单可显示：{0}
 ui.stale = 有改动——重新读取一次。
 ui.building_full = 正在构建模型（包含 VRCFury）…
-ui.with_vrcfury = 这个模型上有 VRCFury，所以跑了完整构建，它的菜单项也包含在内（{0} 秒）。
-ui.drag_hint = 拖动一行即可移动，也可以用箭头。子菜单默认折叠。
+ui.with_vrcfury = 这个模型上有 VRCFury，所以跑了完整构建，它的菜单项也包含在内。
 ui.expand_all = 全部展开
 ui.collapse_all = 全部折叠
 
@@ -48,12 +47,42 @@ ui.order_needs_component = 请先添加 Yuki Menu 组件——否则顺序没有
 ui.no_order = 未设置顺序，菜单按各插件构建的顺序排列。
 ui.order_count = 已为 {0} 个菜单设置了顺序。
 
-type.0 = 按钮
-type.1 = 开关
-type.2 = 子菜单
-type.3 = 双轴
-type.4 = 四轴
-type.5 = 径向
+
+# UI refresh
+ui.drag_hint = 拖动一行即可移动，鼠标悬停时也可以用箭头。右键一行查看更多操作。
+ui.status.unread = 尚未读取
+ui.status.fresh = 已是最新（{0} 秒）
+ui.status.failed = 构建失败
+ui.empty_state = 还没有读取。点“读取菜单”会在隐藏副本上真实构建一次模型，显示它最终真正生成的菜单。
+ui.items = {0} 项
+ui.items_pages = {0} 项 · {1} 页
+ui.next_page = 到第 {0} 页
+ui.link.tip = 由分页添加：这是通往下一页的项目。
+ui.next_page_group = 下一页入口
+ui.scope.root = 仅根轮盘
+ui.scope.everywhere = 所有菜单
+ui.at.end = 放在本页最后
+ui.at.start = 放在本页最前
+ui.at.end_short = 最后
+ui.at.start_short = 最前
+ui.summary = {0} · 每页 {1} 项 · 下一页入口在{2}
+ui.summary_off = 分页保持其他插件的做法
+ui.repage_off = 未接管分页，菜单保留其他插件给出的分页和顺序。
+ui.no_match = 没有与“{0}”匹配的项目。
+ui.filter_no_reorder = 正在显示搜索结果。清空搜索后才能调整顺序。
+ui.move_top = 移到最前
+ui.move_bottom = 移到最后
+ui.expand_here = 展开其中全部
+ui.copy_name = 复制名称
+ui.copy_param = 复制参数名
+ui.reset_order.tip = 清除这里设置的所有顺序，各菜单恢复为插件构建时的顺序。可以撤销。
+
+type.101 = 按钮
+type.102 = 开关
+type.103 = 子菜单
+type.201 = 双轴
+type.202 = 四轴
+type.203 = 径向
 
 undo.add_component = 添加 Yuki Menu
 undo.settings = 修改菜单布局

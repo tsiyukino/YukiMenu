@@ -32,8 +32,7 @@ ui.building = アバターをビルドしています…
 ui.build_failed = ビルドが完了しなかったため、表示できるメニューがありません: {0}
 ui.stale = 変更があります。読み取り直してください。
 ui.building_full = アバターをビルドしています（VRCFury を含む）…
-ui.with_vrcfury = このアバターには VRCFury があるため、フルビルドを実行し、その項目も含めています（{0} 秒）。
-ui.drag_hint = 行をドラッグして移動できます。矢印でも動かせます。サブメニューは折りたたみ状態で始まります。
+ui.with_vrcfury = このアバターには VRCFury があるため、フルビルドを実行し、その項目も含めています。
 ui.expand_all = すべて展開
 ui.collapse_all = すべて折りたたむ
 
@@ -48,12 +47,42 @@ ui.order_needs_component = 先に Yuki Menu コンポーネントを追加して
 ui.no_order = 並び順は未設定です。各ツールが作った順番のまま出力されます。
 ui.order_count = {0} 個のメニューに並び順を設定済みです。
 
-type.0 = ボタン
-type.1 = トグル
-type.2 = サブメニュー
-type.3 = 2 軸
-type.4 = 4 軸
-type.5 = ラジアル
+
+# UI refresh
+ui.drag_hint = 行をドラッグして移動できます。ホバーすると矢印も出ます。右クリックでその他の操作。
+ui.status.unread = まだ読み取っていません
+ui.status.fresh = 最新です（{0} 秒）
+ui.status.failed = ビルドに失敗しました
+ui.empty_state = まだ読み取っていません。「メニューを読み取る」で隠しコピー上にアバターを実際にビルドし、最終的に出力されるメニューを表示します。
+ui.items = {0} 項目
+ui.items_pages = {0} 項目 · {1} ページ
+ui.next_page = {0} ページ目へ
+ui.link.tip = ページ分けで追加された、次のページへ進む項目です。
+ui.next_page_group = 次ページへの項目
+ui.scope.root = ルートホイールのみ
+ui.scope.everywhere = すべてのメニュー
+ui.at.end = ページの最後
+ui.at.start = ページの最初
+ui.at.end_short = 最後
+ui.at.start_short = 最初
+ui.summary = {0} · 1 ページ {1} 項目 · 次ページは{2}
+ui.summary_off = ページ分けは他のツールのまま
+ui.repage_off = ページ分けを引き受けていないため、他のツールが作ったページ分けと並び順のままです。
+ui.no_match = 「{0}」に一致する項目はありません。
+ui.filter_no_reorder = 検索結果を表示中です。並べ替えるには検索を消してください。
+ui.move_top = 一番上へ
+ui.move_bottom = 一番下へ
+ui.expand_here = 中をすべて展開
+ui.copy_name = 名前をコピー
+ui.copy_param = パラメーター名をコピー
+ui.reset_order.tip = ここで設定した並び順をすべて消し、各メニューをツールが作った順番に戻します。元に戻せます。
+
+type.101 = ボタン
+type.102 = トグル
+type.103 = サブメニュー
+type.201 = 2 軸
+type.202 = 4 軸
+type.203 = ラジアル
 
 undo.add_component = Yuki Menu を追加
 undo.settings = メニューレイアウトを変更

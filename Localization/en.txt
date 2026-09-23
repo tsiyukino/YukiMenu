@@ -32,8 +32,7 @@ ui.building = Building the avatar...
 ui.build_failed = The build did not finish, so there is no menu to show: {0}
 ui.stale = Something changed — read it again.
 ui.building_full = Building the avatar, VRCFury included...
-ui.with_vrcfury = VRCFury is on this avatar, so the whole build was run and its menu items are included ({0} s).
-ui.drag_hint = Drag a row to move it, or use the arrows. Submenus start closed.
+ui.with_vrcfury = VRCFury is on this avatar, so the whole build was run and its menu items are included.
 ui.expand_all = Expand all
 ui.collapse_all = Collapse all
 
@@ -48,12 +47,42 @@ ui.order_needs_component = Add the Yuki Menu component first — there is nowher
 ui.no_order = Order not set; the menu comes out in the order the tools build it.
 ui.order_count = Order set for {0} menu(s).
 
-type.0 = Button
-type.1 = Toggle
-type.2 = Submenu
-type.3 = Two axis
-type.4 = Four axis
-type.5 = Radial
+
+# UI refresh
+ui.drag_hint = Drag a row to move it, or hover it for the arrows. Right-click a row for more.
+ui.status.unread = Not read yet
+ui.status.fresh = Up to date ({0} s)
+ui.status.failed = The build failed
+ui.empty_state = Nothing read yet. "Read the menu" builds a hidden copy of the avatar and shows the menu it really ends up with.
+ui.items = {0} items
+ui.items_pages = {0} items · {1} pages
+ui.next_page = to page {0}
+ui.link.tip = Added by the paging: this is the control that leads to the next page.
+ui.next_page_group = Next page link
+ui.scope.root = Root wheel only
+ui.scope.everywhere = Every menu
+ui.at.end = Last on the page
+ui.at.start = First on the page
+ui.at.end_short = last
+ui.at.start_short = first
+ui.summary = {0} · {1} per page · next-page link {2}
+ui.summary_off = Paging left as the other tools made it
+ui.repage_off = Taking over is off, so the menu keeps the paging and order the other tools gave it.
+ui.no_match = Nothing matches "{0}".
+ui.filter_no_reorder = Showing search results. Clear the search to reorder.
+ui.move_top = Move to top
+ui.move_bottom = Move to bottom
+ui.expand_here = Expand everything inside
+ui.copy_name = Copy label
+ui.copy_param = Copy parameter name
+ui.reset_order.tip = Forget every order set here, so each menu goes back to the order its tools build. Can be undone.
+
+type.101 = Button
+type.102 = Toggle
+type.103 = Submenu
+type.201 = Two axis
+type.202 = Four axis
+type.203 = Radial
 
 undo.add_component = Add Yuki Menu
 undo.settings = Change menu layout
