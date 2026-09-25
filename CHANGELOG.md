@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Build warnings are reported to NDMF through TsiYuki Core's `YukiNdmfReport` instead of this package's own
+  copy. The messages are unchanged. Requires TsiYuki Core 0.4.0.
 - Structure: make your own submenus, and move items and whole submenus between
   menus — into a tool's submenu, out of one, or into one of your own. Recorded
   against where each tool put the item, so it holds across builds.

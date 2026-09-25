@@ -46,7 +46,7 @@ namespace TsiYuki.Menus.Editor
 
             var layout = components[0];
             if (components.Length > 1)
-                Report(ErrorSeverity.NonFatal, "warn.multiple", layout,
+                MenuText.Errors.Report(ErrorSeverity.NonFatal, "warn.multiple", layout,
                        new object[] { components.Length.ToString(), Path(ctx, layout) });
 
             var descriptor = ctx.AvatarRootObject.GetComponent<VRCAvatarDescriptor>();
@@ -54,7 +54,7 @@ namespace TsiYuki.Menus.Editor
 
             if (menu == null)
             {
-                Report(ErrorSeverity.Information, "warn.no_menu", layout, new object[0]);
+                MenuText.Errors.Report(ErrorSeverity.Information, "warn.no_menu", layout, new object[0]);
             }
             else if (layout.repage)
             {
@@ -102,7 +102,7 @@ namespace TsiYuki.Menus.Editor
             var root = MenuText.L["ui.root_short"];
             if (problem.Folder != null)
             {
-                Report(ErrorSeverity.NonFatal, "warn.folder_parent_missing", layout, new object[]
+                MenuText.Errors.Report(ErrorSeverity.NonFatal, "warn.folder_parent_missing", layout, new object[]
                 {
                     MenuPreview.Plain(problem.Folder.name),
                 });
@@ -116,13 +116,13 @@ namespace TsiYuki.Menus.Editor
             switch (problem.Kind)
             {
                 case StructureProblemKind.MissingItem:
-                    Report(ErrorSeverity.NonFatal, "warn.move_item_missing", layout, new object[] { item, from });
+                    MenuText.Errors.Report(ErrorSeverity.NonFatal, "warn.move_item_missing", layout, new object[] { item, from });
                     break;
                 case StructureProblemKind.MissingTarget:
-                    Report(ErrorSeverity.NonFatal, "warn.move_target_missing", layout, new object[] { item, to });
+                    MenuText.Errors.Report(ErrorSeverity.NonFatal, "warn.move_target_missing", layout, new object[] { item, to });
                     break;
                 case StructureProblemKind.WouldContainItself:
-                    Report(ErrorSeverity.NonFatal, "warn.move_into_itself", layout, new object[] { item, to });
+                    MenuText.Errors.Report(ErrorSeverity.NonFatal, "warn.move_into_itself", layout, new object[] { item, to });
                     break;
             }
         }
@@ -153,13 +153,6 @@ namespace TsiYuki.Menus.Editor
                 parts.Add(at.name);
             parts.Reverse();
             return string.Join("/", parts);
-        }
-
-        static void Report(ErrorSeverity severity, string key, Object context, object[] args)
-        {
-            var all = (args ?? new object[0]).Select(a => (object)(a?.ToString() ?? "")).ToList();
-            if (context != null) all.Add(context);
-            ErrorReport.ReportError(MenuText.Ndmf, severity, key, all.ToArray());
         }
     }
 }
