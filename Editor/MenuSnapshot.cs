@@ -16,6 +16,8 @@ namespace TsiYuki.Menus.Editor
     public class MenuNode
     {
         public string Name = "";
+        /// <summary>Labels from the root down. Only for showing: what a change
+        /// is recorded against is <see cref="Container"/> and <see cref="Origin"/>.</summary>
         public string Path = "";
         public Texture2D Icon;
         public int Type;
@@ -24,14 +26,35 @@ namespace TsiYuki.Menus.Editor
         public bool IsSubMenu;
         public List<MenuNode> Children = new List<MenuNode>();
 
+        /// <summary>For a submenu, the container its children are recorded
+        /// against. It does not change when the submenu is moved.</summary>
+        public string Container = "";
+
+        // Set by MenuPreview on the tree the window shows.
+
+        /// <summary>The container the tools put this control in; null for a
+        /// folder, which no tool put anywhere.</summary>
+        public string Origin;
+        /// <summary>Set for a submenu made in the window.</summary>
+        public MenuFolder Folder;
+        /// <summary>The recorded move that put it here, if one did.</summary>
+        public MenuMove Move;
+        public MenuItemKey ItemKey;
+        /// <summary>The submenu row (or the root) this row sits in.</summary>
+        public MenuNode Parent;
+
+        public bool IsFolder => Folder != null;
+        public bool Moved => Move != null;
+
         public MenuItemKey Key()
         {
+            if (ItemKey != null) return MenuStructure.Copy(ItemKey);
             return new MenuItemKey { name = Name, parameter = Parameter, value = Value, type = Type };
         }
     }
 
     /// <summary>
-    /// Works out what the avatar's menu actually ends up as, by building the
+    /// Works out what the tools make of the avatar's menu, by building the
     /// avatar and reading the result.
     ///
     /// There is no shortcut: a tool's menu items exist only as instructions
@@ -40,6 +63,10 @@ namespace TsiYuki.Menus.Editor
     /// matters. So a copy of the avatar is built for real, the finished menu is
     /// copied out as plain data, and the copy is thrown away — the scene is left
     /// as it was found, dirty flag included.
+    ///
+    /// Yuki Menu's own pass is left out of that build: what comes back is what
+    /// the other tools made, which is what the changes set in the window are
+    /// recorded against. The window lays those changes over it itself.
     ///
     /// The paging is undone in the copy, so what comes back is the list of menu
     /// items rather than the pages they were split across. The pages are a
@@ -72,15 +99,22 @@ namespace TsiYuki.Menus.Editor
                 clone.name = avatarRoot.name;
                 clone.transform.position = avatarRoot.transform.position + Vector3.right * 1000f;
 
+                // Without the component our pass does nothing, so the result is
+                // the other tools' work alone.
+                foreach (var own in clone.GetComponentsInChildren<YukiMenuLayout>(true))
+                    UnityEngine.Object.DestroyImmediate(own);
+
                 full = wanted && ProcessEverything(clone);
                 LastRunWasFull = full;
                 if (!full) Process(clone);
 
                 var descriptor = clone.GetComponent<VRCAvatarDescriptor>();
                 var menu = descriptor != null ? descriptor.expressionsMenu : null;
-                if (menu == null) return new MenuNode { Name = avatarRoot.name };
+                if (menu == null) return new MenuNode { Name = avatarRoot.name, IsSubMenu = true };
 
-                return Build(menu, "", overflowName, itemsPerPage, new HashSet<VRCExpressionsMenu>());
+                var root = Build(menu, "", overflowName, itemsPerPage, new HashSet<VRCExpressionsMenu>());
+                root.Name = avatarRoot.name;
+                return root;
             }
             catch (Exception e)
             {
@@ -185,7 +219,7 @@ namespace TsiYuki.Menus.Editor
         static MenuNode Build(VRCExpressionsMenu menu, string path, string overflowName, int itemsPerPage,
                               HashSet<VRCExpressionsMenu> open)
         {
-            var node = new MenuNode { Path = path, IsSubMenu = true };
+            var node = new MenuNode { Path = path, Container = path, IsSubMenu = true };
             if (menu == null || !open.Add(menu)) return node;
 
             foreach (var control in Flatten(menu, overflowName, itemsPerPage))
@@ -200,6 +234,7 @@ namespace TsiYuki.Menus.Editor
                     Value = control.value,
                     IsSubMenu = control.type == Control.ControlType.SubMenu,
                 };
+                child.Container = child.Path;
                 if (child.IsSubMenu && control.subMenu != null)
                     child.Children = Build(control.subMenu, child.Path, overflowName, itemsPerPage, open).Children;
                 node.Children.Add(child);

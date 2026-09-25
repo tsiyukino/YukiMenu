@@ -87,6 +87,28 @@ namespace TsiYuki.Menus.Editor
                     EditorUtility.SetDirty(layout);
                 }
             }
+
+            if (layout.HasStructure)
+            {
+                EditorGUILayout.Space(2);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label(L.Tr("ui.structure_count", layout.folders.Count, layout.moves.Count),
+                                    YukiGUI.WrapMini);
+                    if (GUILayout.Button(L["ui.changes.clear_all"], EditorStyles.miniButton, GUILayout.ExpandWidth(false)) &&
+                        EditorUtility.DisplayDialog(L["ui.title"],
+                            L.Tr("ui.changes.clear_confirm", layout.folders.Count, layout.moves.Count),
+                            L["ui.changes.clear_ok"], L["ui.cancel"]))
+                    {
+                        Undo.RecordObject(layout, L["undo.clear_structure"]);
+                        layout.folders.Clear();
+                        layout.moves.Clear();
+                        layout.order.RemoveAll(g => g == null || MenuContainer.IsFolder(g.menuPath));
+                        EditorUtility.SetDirty(layout);
+                        GUIUtility.ExitGUI();
+                    }
+                }
+            }
         }
 
         /// <summary>An enum field with translated option names instead of the

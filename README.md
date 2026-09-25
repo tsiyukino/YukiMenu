@@ -20,20 +20,19 @@ lower limit is often the more usable one. Yuki Menu undoes the existing paging
 first, so its setting decides the result rather than layering on top of it.
 Choose whether that applies to the root wheel only or to every submenu.
 
-**Handles VRCFury.** VRCFury is not an NDMF plugin — it is a VRChat SDK
-preprocessor that runs between NDMF's two halves — so it adds its items after
-everything else has finished and pages the whole menu at eight again, with its
-own `Next` links. Anything laid out before that point is undone. Yuki Menu runs
-on the far side of it, in NDMF's Optimizing phase, where what it sees includes
-VRCFury's items and is what ships. It recognises Modular Avatar's `More` links,
-VRCFury's `Next` links and its own, including the ones VRCFury strands in the
-middle of a menu by appending its items after them.
+**Keeps an order.** Move items up and down in the window and the arrangement is
+remembered on the component. Nothing in a finished menu survives between builds,
+so each item is recorded by its parameter and value first and its label second;
+an item the recording does not mention was added by a tool since and keeps its
+place at the end rather than disappearing.
 
-**Keeps an order.** Drag items into the order you want and it is remembered on
-the component. Nothing in a finished menu survives between builds, so each item
-is recorded by its parameter and value first and its label second; an item the
-recording does not mention was added by a tool since and keeps its place at the
-end rather than disappearing.
+**Changes its structure.** Make submenus of your own, and move any item —
+including a whole submenu a tool made — into another menu, a tool's or yours.
+Like the order, each change is recorded against where the tool put the item, so
+it is found again in the next build; one that no longer finds its item is shown
+in the window and skipped, and the item stays where its tool put it. Moving
+things between menus is kept behind an *Edit structure* switch, so an ordinary
+drag can only reorder; *Move to* in the right-click menu works either way.
 
 ## Use
 
@@ -57,15 +56,10 @@ Install from the [TsiYuki VPM listing](https://tsiyukino.github.io/vpm-repos/).
 
 ## Notes
 
-On an avatar with VRCFury, reading the menu runs the whole VRChat preprocessor
-chain rather than NDMF alone — that is the only way to see VRCFury's items,
-because it builds them itself. That takes around ten seconds instead of two, and
-VRCFury writes its usual build trace to the console while it happens. The build
-runs on a copy that is thrown away; nothing is uploaded and your scene is left as
-it was. Avatars without VRCFury take the short path.
-
-The layout pass itself runs in NDMF's Optimizing phase, after VRCFury. A tool
-that adds menu items even later than that would be outside what this can reach.
+The pass runs in NDMF's Transforming phase, after Modular Avatar. A tool that
+adds menu items later than that — VRCFury, for instance, which hooks the VRChat
+SDK rather than NDMF — is outside what this can reach, and its items will be
+paged by whatever added them.
 
 ## License
 

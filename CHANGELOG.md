@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Structure: make your own submenus, and move items and whole submenus between
+  menus — into a tool's submenu, out of one, or into one of your own. Recorded
+  against where each tool put the item, so it holds across builds.
+- Structure: moving between menus is behind an *Edit structure* switch in the
+  tree toolbar, off whenever the window opens; right-click → *Move to* works
+  without it. Drags start only after the pointer has moved a little, show a
+  blue line within a menu and an orange one naming the menu when changing menu,
+  and open a closed submenu when rested on.
+- Structure: moved items are marked, with *Move back* in the right-click menu.
+  Submenus you made can be renamed, given an icon, and taken apart (the contents
+  move up to where the submenu was).
+- Structure: a *Structure changes* panel lists every change with a way back, and
+  flags any that no longer find their item; the build reports those too.
+- The window now reads the menu without Yuki Menu's own pass and lays the order
+  and structure over it itself, with the same code the build uses, so changes
+  show immediately without reading again.
+- Every menu's pages are folded back before changes are applied, so an item that
+  happened to be on a later page is found.
 - Window: one spacing scale throughout; type tags and details line up in columns
   down the whole tree.
 - Window: the settings fold away to a one-line summary, and the read button shows

@@ -68,21 +68,63 @@ namespace TsiYuki.Menus.Editor
                     OverflowIcon = layout.overflowIcon,
                     OverflowFirst = layout.overflowAt == OverflowPlacement.Start,
                     Order = layout.order,
+                    Folders = layout.folders,
+                    Moves = layout.moves,
                     IsGenerated = Generated(ctx),
                     Save = m => ctx.AssetSaver.SaveAsset(m),
                 };
 
-                var result = MenuPaginator.Run(menu, options);
+                var result = MenuPaginator.Run(menu, options, out var problems);
+                foreach (var problem in problems) ReportProblem(problem, layout);
+
                 if (result != menu)
                 {
                     descriptor.expressionsMenu = result;
                     Debug.Log($"[Yuki Menu] Laid out the menu at {layout.itemsPerPage} per page" +
-                              (options.Everywhere ? " (every submenu)." : " (root wheel only)."));
+                              (options.Everywhere ? " (every submenu)" : " (root wheel only)") +
+                              (layout.HasStructure
+                                  ? $", with {layout.folders.Count} submenu(s) made and {layout.moves.Count - problems.Count(p => p.Move != null)} move(s)."
+                                  : "."));
                 }
             }
 
             foreach (var component in components)
                 if (component != null) Object.DestroyImmediate(component);
+        }
+
+        /// <summary>
+        /// A change that could not be made is skipped, and the control stays
+        /// where its tool put it; the report says which, so it can be tidied up
+        /// in the window.
+        /// </summary>
+        static void ReportProblem(StructureProblem problem, YukiMenuLayout layout)
+        {
+            var root = MenuText.L["ui.root_short"];
+            if (problem.Folder != null)
+            {
+                Report(ErrorSeverity.NonFatal, "warn.folder_parent_missing", layout, new object[]
+                {
+                    MenuPreview.Plain(problem.Folder.name),
+                });
+                return;
+            }
+
+            var move = problem.Move;
+            var item = MenuPreview.Plain(move.item != null ? move.item.name : "");
+            var from = MenuPreview.Describe(move.from, layout, root);
+            var to = MenuPreview.Describe(move.to, layout, root);
+            switch (problem.Kind)
+            {
+                case StructureProblemKind.MissingItem:
+                    Report(ErrorSeverity.NonFatal, "warn.move_item_missing", layout, new object[] { item, from });
+                    break;
+                case StructureProblemKind.MissingTarget:
+                    Report(ErrorSeverity.NonFatal, "warn.move_target_missing", layout, new object[] { item, to });
+                    break;
+                case StructureProblemKind.WouldContainItself:
+                    Report(ErrorSeverity.NonFatal, "warn.move_into_itself", layout, new object[] { item, to });
+                    break;
+            }
         }
 
         /// <summary>

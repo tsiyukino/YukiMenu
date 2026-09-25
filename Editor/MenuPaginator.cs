@@ -11,8 +11,8 @@ namespace TsiYuki.Menus.Editor
 {
     /// <summary>
     /// Rebuilds a finished menu tree: undoes the paging the other tools added,
-    /// puts the controls in the order the user set, and pages the result at the
-    /// user's own limit.
+    /// gives it the structure and order the user set, and pages the result at
+    /// the user's own limit.
     ///
     /// It runs on the build copy, after every tool that installs menu items has
     /// had its turn, so what it sees is what the avatar would have shipped
@@ -58,6 +58,8 @@ namespace TsiYuki.Menus.Editor
             public Texture2D OverflowIcon;
             public bool OverflowFirst;
             public List<MenuOrderGroup> Order;
+            public List<MenuFolder> Folders;
+            public List<MenuMove> Moves;
 
             /// <summary>Which menus came from this build rather than the project.
             /// Only those are safe to take apart.</summary>
@@ -69,51 +71,137 @@ namespace TsiYuki.Menus.Editor
 
         public static VRCExpressionsMenu Run(VRCExpressionsMenu root, Options options)
         {
-            if (root == null) return null;
-            return Visit(root, "", options, new Dictionary<VRCExpressionsMenu, VRCExpressionsMenu>(),
-                         new HashSet<VRCExpressionsMenu>());
+            return Run(root, options, out _);
         }
 
-        static VRCExpressionsMenu Visit(VRCExpressionsMenu menu, string path, Options options,
-                                        Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> done,
-                                        HashSet<VRCExpressionsMenu> open)
+        /// <param name="problems">The structure changes that could not be
+        /// carried out, and were skipped.</param>
+        public static VRCExpressionsMenu Run(VRCExpressionsMenu root, Options options,
+                                             out List<StructureProblem> problems)
+        {
+            problems = new List<StructureProblem>();
+            if (root == null) return null;
+
+            var boxes = new Dictionary<string, LayoutBox>();
+            var rootBox = Load(root, MenuContainer.Root, options, boxes,
+                               new Dictionary<VRCExpressionsMenu, LayoutBox>(), new HashSet<VRCExpressionsMenu>());
+            if (rootBox == null) return root;
+
+            problems = MenuStructure.Apply(rootBox, boxes, new MenuStructure.Input
+            {
+                Folders = options.Folders,
+                Moves = options.Moves,
+                Order = options.Order,
+            }, (folder, box) => FolderControl(folder));
+
+            return Emit(rootBox, rootBox, options, new Dictionary<LayoutBox, VRCExpressionsMenu>(),
+                        new HashSet<LayoutBox>());
+        }
+
+        // --- reading the tree the tools built ---------------------------------------
+
+        /// <summary>
+        /// One box per menu, with its pages folded back in, named by its path.
+        ///
+        /// Every menu is flattened, not only the ones being paged: a change can
+        /// name a control that happens to sit on a later page, and it has to be
+        /// found there. A menu that nothing ends up changing is still handed
+        /// back as it was, pages and all.
+        /// </summary>
+        static LayoutBox Load(VRCExpressionsMenu menu, string path, Options options,
+                              Dictionary<string, LayoutBox> boxes,
+                              Dictionary<VRCExpressionsMenu, LayoutBox> loaded,
+                              HashSet<VRCExpressionsMenu> open)
         {
             if (menu == null) return null;
-            VRCExpressionsMenu already;
-            if (done.TryGetValue(menu, out already)) return already;
-            // A menu that contains itself would never finish; leave that whole
-            // branch exactly as it is.
-            if (!open.Add(menu)) return menu;
+            LayoutBox already;
+            if (loaded.TryGetValue(menu, out already)) return already;
+            // A menu that contains itself would never finish; that control is
+            // left pointing where it did.
+            if (!open.Add(menu)) return null;
 
-            var paging = options.Everywhere || path.Length == 0;
-            var group = Group(options, path);
-            var changed = false;
-
-            // Undoing the paging is what makes the controls of a menu one list
-            // again, so it is needed for ordering just as much as for re-paging.
-            var controls = paging || group != null
-                ? Flatten(menu, options, ref changed)
-                : menu.controls.Select(Clone).ToList();
+            var flattened = false;
+            var controls = Flatten(menu, options, ref flattened);
+            var box = new LayoutBox { Id = path, Name = menu.name, Source = menu, Flattened = flattened };
+            // Two menus with one label in one parent share a path; the first is
+            // the one a recorded change means.
+            if (!boxes.ContainsKey(path)) boxes[path] = box;
 
             foreach (var control in controls)
             {
-                if (control.type != Control.ControlType.SubMenu || control.subMenu == null) continue;
-                var child = Visit(control.subMenu, Join(path, control.name), options, done, open);
-                if (child == control.subMenu) continue;
-                control.subMenu = child;
-                changed = true;
+                var entry = new LayoutEntry { Key = KeyOf(control), Origin = path, Payload = control };
+                if (control.type == Control.ControlType.SubMenu && control.subMenu != null)
+                    entry.Child = Load(control.subMenu, Join(path, control.name), options, boxes, loaded, open);
+                box.Entries.Add(entry);
             }
 
-            if (group != null) changed |= Reorder(controls, group);
+            open.Remove(menu);
+            loaded[menu] = box;
+            return box;
+        }
+
+        static Control FolderControl(MenuFolder folder)
+        {
+            return new Control
+            {
+                name = folder.name ?? "",
+                icon = folder.icon,
+                type = Control.ControlType.SubMenu,
+                parameter = new Control.Parameter { name = "" },
+                subParameters = new Control.Parameter[0],
+                labels = new Control.Label[0],
+            };
+        }
+
+        // --- writing it back --------------------------------------------------------
+
+        static VRCExpressionsMenu Emit(LayoutBox box, LayoutBox root, Options options,
+                                       Dictionary<LayoutBox, VRCExpressionsMenu> done, HashSet<LayoutBox> open)
+        {
+            VRCExpressionsMenu already;
+            if (done.TryGetValue(box, out already)) return already;
+            var source = box.Source as VRCExpressionsMenu;
+            // Cannot happen — moves that would nest a menu in itself are refused —
+            // but a loop here would hang the build.
+            if (!open.Add(box)) return source;
+
+            var controls = new List<Control>();
+            var childChanged = false;
+            foreach (var entry in box.Entries)
+            {
+                var control = (Control)entry.Payload;
+                if (entry.Child != null)
+                {
+                    var sub = Emit(entry.Child, root, options, done, open);
+                    if (sub != control.subMenu)
+                    {
+                        control.subMenu = sub;
+                        childChanged = true;
+                    }
+                }
+                controls.Add(control);
+            }
 
             // A menu outside the paging scope still has to obey VRChat's own
-            // ceiling, which taking its pages apart may have just broken.
+            // ceiling, which taking its pages apart or moving things in may
+            // have just broken.
+            var paging = options.Everywhere || box == root;
             var limit = paging ? Mathf.Clamp(options.ItemsPerPage, 2, VrcLimit) : VrcLimit;
-            changed |= Paginate(controls, limit, menu.name, options);
+            var changed = source == null || box.Dirty || childChanged || (paging && box.Flattened) ||
+                          controls.Count > limit;
 
-            var result = changed ? Rebuild(menu, controls, options) : menu;
-            open.Remove(menu);
-            done[menu] = result;
+            VRCExpressionsMenu result = source;
+            if (changed)
+            {
+                Paginate(controls, limit, box.Name, options);
+                result = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+                result.name = string.IsNullOrEmpty(box.Name) ? "Menu" : box.Name;
+                result.controls = controls;
+                options.Save(result);
+            }
+
+            open.Remove(box);
+            done[box] = result;
             return result;
         }
 
@@ -227,62 +315,6 @@ namespace TsiYuki.Menus.Editor
             return control.parameter == null || string.IsNullOrEmpty(control.parameter.name);
         }
 
-        // --- the order the user set -------------------------------------------------
-
-        static MenuOrderGroup Group(Options options, string path)
-        {
-            if (options.Order == null) return null;
-            foreach (var group in options.Order)
-                if ((group.menuPath ?? "") == path && group.items != null && group.items.Count > 0)
-                    return group;
-            return null;
-        }
-
-        /// <summary>
-        /// Sorts in place to match the recorded order. Anything the recording
-        /// does not mention was added by a tool since, and keeps its place at
-        /// the end rather than disappearing.
-        /// </summary>
-        static bool Reorder(List<Control> controls, MenuOrderGroup group)
-        {
-            var before = new List<Control>(controls);
-            var remaining = new List<Control>(controls);
-            var sorted = new List<Control>();
-
-            foreach (var key in group.items)
-            {
-                var index = Match(remaining, key);
-                if (index < 0) continue;
-                sorted.Add(remaining[index]);
-                remaining.RemoveAt(index);
-            }
-            sorted.AddRange(remaining);
-
-            controls.Clear();
-            controls.AddRange(sorted);
-            return !before.SequenceEqual(controls);
-        }
-
-        /// <summary>Parameter and value first, because they survive renaming;
-        /// the label is the fallback for controls that drive nothing.</summary>
-        static int Match(List<Control> controls, MenuItemKey key)
-        {
-            if (key == null) return -1;
-
-            if (!string.IsNullOrEmpty(key.parameter))
-            {
-                var exact = controls.FindIndex(c =>
-                    c.parameter != null && c.parameter.name == key.parameter &&
-                    Mathf.Approximately(c.value, key.value));
-                if (exact >= 0) return exact;
-            }
-
-            var labelled = controls.FindIndex(c => c.name == key.name && (int)c.type == key.type);
-            if (labelled >= 0) return labelled;
-
-            return controls.FindIndex(c => c.name == key.name);
-        }
-
         public static MenuItemKey KeyOf(Control control)
         {
             return new MenuItemKey
@@ -370,15 +402,6 @@ namespace TsiYuki.Menus.Editor
         }
 
         // --- odds and ends ----------------------------------------------------------
-
-        static VRCExpressionsMenu Rebuild(VRCExpressionsMenu original, List<Control> controls, Options options)
-        {
-            var menu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
-            menu.name = original.name;
-            menu.controls = controls;
-            options.Save(menu);
-            return menu;
-        }
 
         /// <summary>
         /// A control is copied before anything is changed on it: the list we
