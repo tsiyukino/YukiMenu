@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.1.1] - 2026-09-26
 
 - Build warnings are reported to NDMF through TsiYuki Core's `YukiNdmfReport` instead of this package's own
   copy. The messages are unchanged. Requires TsiYuki Core 0.4.0.
